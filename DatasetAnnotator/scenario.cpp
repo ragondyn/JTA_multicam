@@ -16,10 +16,10 @@
 #define SCREEN_HEIGHT 1080
 #define TIME_FACTOR 12.0
 #define FPS 30
-#define DISPLAY_FLAG FALSE
+#define DISPLAY_FLAG TRUE
 #define WANDERING_RADIUS 10.0
 #define MAX_PED_TO_CAM_DISTANCE 100.0
-#define DEMO FALSE
+#define DEMO TRUE
 
 static char scenarioTypes[14][40]{
 	"NEAREST",
@@ -374,7 +374,7 @@ int DatasetAnnotator::update()
 		}
 	}
 
-	
+	/*
 	if (moving) {
 		this->cam_coords = CAM::GET_CAM_COORD(camera);
 		Vector3 ped_with_cam_rot = ENTITY::GET_ENTITY_ROTATION(this->ped_with_cam, 2);
@@ -382,188 +382,197 @@ int DatasetAnnotator::update()
 		this->cam_rot = CAM::GET_CAM_ROT(camera, 2);
 		//this->cam_rot = ped_with_cam_rot;
 	}
+	*/
 
 	//this->cam_coords = CAM::GET_GAMEPLAY_CAM_COORD();
 	//this->cam_rot = CAM::GET_GAMEPLAY_CAM_ROT(2);
 	//this->fov = CAM::GET_GAMEPLAY_CAM_FOV();
 
 	// scan all the pedestrians taken
-	for (int i = 0; i < number_of_peds; i++){
+	
+	for (int k = 0; k < number_of_cameras; k++) {
 
-		// ignore pedestrians in vehicles or dead pedestrians
-		if(PED::IS_PED_IN_ANY_VEHICLE(peds[i], TRUE) || PED::IS_PED_DEAD_OR_DYING(peds[i], TRUE)) {
-			//log_file << "veicolo o morto\n";
-			continue;
-		}
-		// ignore player
-		else if (PED::IS_PED_A_PLAYER(peds[i])) {
-			//log_file << "player\n";
-			continue;
-		}
-		else if (!ENTITY::IS_ENTITY_ON_SCREEN(peds[i])) {
-			//log_file << "non su schermo\n";
-			continue;
-		}
-		else if (!PED::IS_PED_HUMAN(peds[i])) {
-			//log_file << "non umano\n";
-			continue;
-		}
-		else if (!ENTITY::IS_ENTITY_VISIBLE(peds[i])) {
-			//log_file << "invisibile\n";
-			continue;
-		}
+		CAM::SET_CAM_COORD(camera, cam_coords[k].x, cam_coords[k].y, cam_coords[k].z);
+		CAM::SET_CAM_ROT(camera, cam_rot[k].x, cam_rot[k].y, cam_rot[k].z, 2);
+		CAM::SET_CAM_FOV(camera, (float)fov); // CHECK AND MOVE TO ARRAY?
+		//CAM::RENDER_SCRIPT_CAMS(TRUE, FALSE, 0, TRUE, TRUE);
 
-		Vector3 ped_coords = ENTITY::GET_ENTITY_COORDS(peds[i], TRUE);
-		float ped2cam_distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(
-			cam_coords.x, cam_coords.y, cam_coords.z, 
-			ped_coords.x, ped_coords.y, ped_coords.z, 1
-		);
+		for (int i = 0; i < number_of_peds; i++) {
 
-		if (ped2cam_distance < MAX_PED_TO_CAM_DISTANCE) {
-			
-			// for each pedestrians scan all the joint_ID we choose on the subset
-			for (int n = -1; n < number_of_joints; n++) {
+			// ignore pedestrians in vehicles or dead pedestrians
+			if (PED::IS_PED_IN_ANY_VEHICLE(peds[i], TRUE) || PED::IS_PED_DEAD_OR_DYING(peds[i], TRUE)) {
+				//log_file << "veicolo o morto\n";
+				continue;
+			}
+			// ignore player
+			else if (PED::IS_PED_A_PLAYER(peds[i])) {
+				//log_file << "player\n";
+				continue;
+			}
+			else if (!ENTITY::IS_ENTITY_ON_SCREEN(peds[i])) {
+				//log_file << "non su schermo\n";
+				continue;
+			}
+			else if (!PED::IS_PED_HUMAN(peds[i])) {
+				//log_file << "non umano\n";
+				continue;
+			}
+			else if (!ENTITY::IS_ENTITY_VISIBLE(peds[i])) {
+				//log_file << "invisibile\n";
+				continue;
+			}
 
-				Vector3 joint_coords;
-				if (n == -1) {
-					Vector3 head_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[0]));
-					Vector3 neck_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[1]));
-					float head_neck_norm = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(neck_coords.x, neck_coords.y, neck_coords.z, head_coords.x, head_coords.y, head_coords.z, 1);
-					float dx = (head_coords.x - neck_coords.x) / head_neck_norm;
-					float dy = (head_coords.y - neck_coords.y) / head_neck_norm;
-					float dz = (head_coords.z - neck_coords.z) / head_neck_norm;
+			Vector3 ped_coords = ENTITY::GET_ENTITY_COORDS(peds[i], TRUE);
+			float ped2cam_distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(
+				cam_coords[k].x, cam_coords[k].y, cam_coords[k].z,
+				ped_coords.x, ped_coords.y, ped_coords.z, 1
+			);
 
-					joint_coords.x = head_coords.x + head_neck_norm * dx;
-					joint_coords.y = head_coords.y + head_neck_norm * dy;
-					joint_coords.z = head_coords.z + head_neck_norm * dz;
-				}
-				else 
-					joint_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[n]));
-				
-				// finding the versor (dx, dy, dz) pointing from the joint to the cam
-				float joint2cam_distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(
-					joint_coords.x, joint_coords.y, joint_coords.z, 
-					cam_coords.x, cam_coords.y, cam_coords.z, 1
-				);
-				float dx = (cam_coords.x - joint_coords.x) / joint2cam_distance;
-				float dy = (cam_coords.y - joint_coords.y) / joint2cam_distance;
-				float dz = (cam_coords.z - joint_coords.z) / joint2cam_distance;
+			if (ped2cam_distance < MAX_PED_TO_CAM_DISTANCE) {
 
-				// ray #1: from joint to cam_coords (ignoring the pedestrian to whom the joint belongs and intersecting only pedestrian (8))
-				// ==> useful for detecting occlusions of pedestrian
-				Vector3 end_coords1, surface_norm1;
-				BOOL occlusion_ped;
-				Entity entityHit1 = 0;
+				// for each pedestrians scan all the joint_ID we choose on the subset
+				for (int n = -1; n < number_of_joints; n++) {
 
-				int ray_ped_occlusion = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
-					joint_coords.x, joint_coords.y, joint_coords.z,
-					cam_coords.x, cam_coords.y, cam_coords.z,
-					8, peds[i], 7
-				);
-				WORLDPROBE::_GET_RAYCAST_RESULT(ray_ped_occlusion, &occlusion_ped, &end_coords1, &surface_norm1, &entityHit1);
+					Vector3 joint_coords;
+					if (n == -1) {
+						Vector3 head_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[0]));
+						Vector3 neck_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[1]));
+						float head_neck_norm = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(neck_coords.x, neck_coords.y, neck_coords.z, head_coords.x, head_coords.y, head_coords.z, 1);
+						float dx = (head_coords.x - neck_coords.x) / head_neck_norm;
+						float dy = (head_coords.y - neck_coords.y) / head_neck_norm;
+						float dz = (head_coords.z - neck_coords.z) / head_neck_norm;
 
-				if (entityHit1 == ped_with_cam)
-					occlusion_ped = FALSE;
-
-
-				// ray #2: from joint to camera (without ignoring the pedestrian to whom the joint belongs and intersecting only pedestrian (8))
-				// ==> useful for detecting self-occlusions
-				Vector3 endCoords2, surfaceNormal2;
-				BOOL occlusion_self;
-				Entity entityHit2 = 0;
-				int ray_joint2cam = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
-					joint_coords.x + 0.1f*dx, joint_coords.y + 0.1f*dy, joint_coords.z + 0.1f*dz,
-					cam_coords.x, cam_coords.y, cam_coords.z, 
-					8, 0, 7
-				);
-				WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam, &occlusion_self, &endCoords2, &surfaceNormal2, &entityHit2);
-
-				if (entityHit2 == ped_with_cam)
-					occlusion_self = FALSE;
-
-
-				// ray #3: from camera to joint (ignoring the pedestrian to whom the joint belongs and intersecting everything but peds (4 and 8))
-				// ==> useful for detecting occlusions with objects
-				Vector3 endCoords3, surfaceNormal3;
-				BOOL occlusion_object;
-				Entity entityHit3 = 0;
-				int ray_joint2cam_obj = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
-					cam_coords.x, cam_coords.y, cam_coords.z,
-					joint_coords.x, joint_coords.y, joint_coords.z,
-					(~0 ^ (8|4)), peds[i], 7
-					);
-				WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam_obj, &occlusion_object, &endCoords3, &surfaceNormal3, &entityHit3);
-
-				
-				BOOL occluded = occlusion_ped || occlusion_object;
-
-
-				if (DISPLAY_FLAG) {
-					float x, y;
-					get_2D_from_3D(joint_coords, &x, &y);
-
-					// C calculation based on distance between the current pedestrians and the camera
-					if (ped2cam_distance > 6)
-						C = (float)(1.5 / cbrt(ped2cam_distance));
+						joint_coords.x = head_coords.x + head_neck_norm * dx;
+						joint_coords.y = head_coords.y + head_neck_norm * dy;
+						joint_coords.z = head_coords.z + head_neck_norm * dz;
+					}
 					else
-						C = 1;
+						joint_coords = ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(peds[i], PED::GET_PED_BONE_INDEX(peds[i], joint_int_codes[n]));
 
-					if (occluded) {
-						/*GRAPHICS::DRAW_BOX(
+					// finding the versor (dx, dy, dz) pointing from the joint to the cam
+					float joint2cam_distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(
 						joint_coords.x, joint_coords.y, joint_coords.z,
-						joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
-						255, 0, 64, 175
-						);*/
-						GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 255, 0, 64, 175);
-					}
-					else if (occlusion_self) {
-						/*GRAPHICS::DRAW_BOX(
-							joint_coords.x, joint_coords.y, joint_coords.z,
-							joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
-							255, 128, 16, 175
-							);*/
-						GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 255, 128, 16, 175);
-					}
-					else {
-						/*GRAPHICS::DRAW_BOX(
-							joint_coords.x, joint_coords.y, joint_coords.z,
-							joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
-							0, 255, 64, 175
-							);*/
-						GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 0, 255, 64, 175);
-					}
-				}
+						cam_coords[k].x, cam_coords[k].y, cam_coords[k].z, 1
+					); 
+					float dx = (cam_coords[k].x - joint_coords.x) / joint2cam_distance;
+					float dy = (cam_coords[k].y - joint_coords.y) / joint2cam_distance;
+					float dz = (cam_coords[k].z - joint_coords.z) / joint2cam_distance;
 
-				coords_file << nsample;					  // frame number
-				coords_file << "," << peds[i];			  // pedestrian ID
-				coords_file << "," << n+1;				  // joint type
-				coords_file << "," << joint_coords.x;	  // joint 3D x [m]
-				coords_file << "," << joint_coords.y;	  // joint 3D y [m]
-				coords_file << "," << joint_coords.z;	  // joint 3D z [m]
-				coords_file << "," << occluded;			  // is joint occluded?
-				coords_file << "," << occlusion_self;	  // is joint self-occluded?
-				coords_file << "," << cam_coords.x;		  // camera 3D x [m]
-				coords_file << "," << cam_coords.y;	      // camera 3D y [m]
-				coords_file << "," << cam_coords.z;	      // camera 3D z [m]
-				coords_file << "," << cam_rot.x;		  // camera 3D rotation x [degrees]
-				coords_file << "," << cam_rot.y;	      // camera 3D rotation y [degrees]
-				coords_file << "," << cam_rot.z;	      // camera 3D rotation z [degrees]
-				coords_file << "," << fov;				  // camera FOV  [degrees]
-				coords_file << "\n";
+					// ray #1: from joint to cam_coords (ignoring the pedestrian to whom the joint belongs and intersecting only pedestrian (8))
+					// ==> useful for detecting occlusions of pedestrian
+					Vector3 end_coords1, surface_norm1;
+					BOOL occlusion_ped;
+					Entity entityHit1 = 0;
+
+					int ray_ped_occlusion = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
+						joint_coords.x, joint_coords.y, joint_coords.z,
+						cam_coords[k].x, cam_coords[k].y, cam_coords[k].z,
+						8, peds[i], 7
+					);
+					WORLDPROBE::_GET_RAYCAST_RESULT(ray_ped_occlusion, &occlusion_ped, &end_coords1, &surface_norm1, &entityHit1);
+
+					if (entityHit1 == ped_with_cam)
+						occlusion_ped = FALSE;
+
+
+					// ray #2: from joint to camera (without ignoring the pedestrian to whom the joint belongs and intersecting only pedestrian (8))
+					// ==> useful for detecting self-occlusions
+					Vector3 endCoords2, surfaceNormal2;
+					BOOL occlusion_self;
+					Entity entityHit2 = 0;
+					int ray_joint2cam = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
+						joint_coords.x + 0.1f*dx, joint_coords.y + 0.1f*dy, joint_coords.z + 0.1f*dz,
+						cam_coords[k].x, cam_coords[k].y, cam_coords[k].z,
+						8, 0, 7
+					);
+					WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam, &occlusion_self, &endCoords2, &surfaceNormal2, &entityHit2);
+
+					if (entityHit2 == ped_with_cam)
+						occlusion_self = FALSE;
+
+
+					// ray #3: from camera to joint (ignoring the pedestrian to whom the joint belongs and intersecting everything but peds (4 and 8))
+					// ==> useful for detecting occlusions with objects
+					Vector3 endCoords3, surfaceNormal3;
+					BOOL occlusion_object;
+					Entity entityHit3 = 0;
+					int ray_joint2cam_obj = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(
+						cam_coords[k].x, cam_coords[k].y, cam_coords[k].z,
+						joint_coords.x, joint_coords.y, joint_coords.z,
+						(~0 ^ (8 | 4)), peds[i], 7
+					);
+					WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam_obj, &occlusion_object, &endCoords3, &surfaceNormal3, &entityHit3);
+
+
+					BOOL occluded = occlusion_ped || occlusion_object;
+
+
+					if (DISPLAY_FLAG) {
+						float x, y;
+						get_2D_from_3D(joint_coords, &x, &y,k);
+
+						// C calculation based on distance between the current pedestrians and the camera
+						if (ped2cam_distance > 6)
+							C = (float)(1.5 / cbrt(ped2cam_distance));
+						else
+							C = 1;
+
+						if (occluded) {
+							/*GRAPHICS::DRAW_BOX(
+							joint_coords.x, joint_coords.y, joint_coords.z,
+							joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
+							255, 0, 64, 175
+							);*/
+							GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 255, 0, 64, 175);
+						}
+						else if (occlusion_self) {
+							/*GRAPHICS::DRAW_BOX(
+								joint_coords.x, joint_coords.y, joint_coords.z,
+								joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
+								255, 128, 16, 175
+								);*/
+							GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 255, 128, 16, 175);
+						}
+						else {
+							/*GRAPHICS::DRAW_BOX(
+								joint_coords.x, joint_coords.y, joint_coords.z,
+								joint_coords.x + 0.1, joint_coords.y + 0.1, joint_coords.z + 0.1,
+								0, 255, 64, 175
+								);*/
+							GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 0, 255, 64, 175);
+						}
+					}
+
+					coords_file << nsample;					  // frame number
+					coords_file << "," << peds[i];			  // pedestrian ID
+					coords_file << "," << n + 1;				  // joint type
+					coords_file << "," << joint_coords.x;	  // joint 3D x [m]
+					coords_file << "," << joint_coords.y;	  // joint 3D y [m]
+					coords_file << "," << joint_coords.z;	  // joint 3D z [m]
+					coords_file << "," << occluded;			  // is joint occluded?
+					coords_file << "," << occlusion_self;	  // is joint self-occluded?
+					coords_file << "," << cam_coords[k].x;		  // camera 3D x [m]
+					coords_file << "," << cam_coords[k].y;	      // camera 3D y [m]
+					coords_file << "," << cam_coords[k].z;	      // camera 3D z [m]
+					coords_file << "," << cam_rot[k].x;		  // camera 3D rotation x [degrees]
+					coords_file << "," << cam_rot[k].y;	      // camera 3D rotation y [degrees]
+					coords_file << "," << cam_rot[k].z;	      // camera 3D rotation z [degrees]
+					coords_file << "," << fov;				  // camera FOV  [degrees]
+					coords_file << "\n";
+				}
+			}
+		}
+		save_frame();
+		nsample++;
+		if (nsample == max_samples) {
+			for (int i = 0; i < nwPeds; i++) {
+				PED::DELETE_PED(&wPeds[i].ped);
+			}
+			for (int i = 0; i < nwPeds_scenario; i++) {
+				PED::DELETE_PED(&wPeds_scenario[i].ped);
 			}
 		}
 	}
-	save_frame();
-	nsample++;
-	if (nsample == max_samples) {
-		for (int i = 0; i < nwPeds; i++) {
-			PED::DELETE_PED(&wPeds[i].ped);
-		}
-		for (int i = 0; i < nwPeds_scenario; i++) {
-			PED::DELETE_PED(&wPeds_scenario[i].ped);
-		}
-	}
-
 	return nsample;
 }
 
@@ -590,17 +599,17 @@ void DatasetAnnotator::addwPed_scenario(Ped p)
 	nwPeds_scenario++;
 }
 
-void DatasetAnnotator::get_2D_from_3D(Vector3 v, float *x2d, float *y2d) {
+void DatasetAnnotator::get_2D_from_3D(Vector3 v, float *x2d, float *y2d, int indexCam) {
 
 	// translation
-	float x = v.x - cam_coords.x;
-	float y = v.y - cam_coords.y;
-	float z = v.z - cam_coords.z;
+	float x = v.x - cam_coords[indexCam].x;
+	float y = v.y - cam_coords[indexCam].y;
+	float z = v.z - cam_coords[indexCam].z;
 
 	// rotation
-	float cam_x_rad = cam_rot.x * (float)M_PI / 180.0f;
-	float cam_y_rad = cam_rot.y * (float)M_PI / 180.0f;
-	float cam_z_rad = cam_rot.z * (float)M_PI / 180.0f;
+	float cam_x_rad = cam_rot[indexCam].x * (float)M_PI / 180.0f;
+	float cam_y_rad = cam_rot[indexCam].y * (float)M_PI / 180.0f;
+	float cam_z_rad = cam_rot[indexCam].z * (float)M_PI / 180.0f;
 
 	// cos
 	float cx = cos(cam_x_rad);
@@ -680,11 +689,11 @@ void DatasetAnnotator::setCameraMoving(Vector3 A, Vector3 B, Vector3 C, int fov)
 	AI::CLEAR_SEQUENCE_TASK(&seq);
 
 	// set the cam_coords used on update() function
-	this->cam_coords = CAM::GET_CAM_COORD(camera);
-	this->cam_rot = CAM::GET_CAM_ROT(camera, 2);
+	//this->cam_coords = CAM::GET_CAM_COORD(camera);
+	//this->cam_rot = CAM::GET_CAM_ROT(camera, 2);
 }
 
-void DatasetAnnotator::setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, int fov) {
+void DatasetAnnotator::setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, int fov, int k) {
 
 	CAM::DESTROY_ALL_CAMS(TRUE);
 	this->camera = CAM::CREATE_CAM((char *)"DEFAULT_SCRIPTED_CAMERA", TRUE);
@@ -696,8 +705,8 @@ void DatasetAnnotator::setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, 
 
 
 	// set the cam_coords used on update() function
-	this->cam_coords = CAM::GET_CAM_COORD(camera);
-	this->cam_rot = CAM::GET_CAM_ROT(camera, 2);
+	this->cam_coords[k] = CAM::GET_CAM_COORD(camera);
+	this->cam_rot[k] = CAM::GET_CAM_ROT(camera, 2);
 	this->fov = (int)CAM::GET_CAM_FOV(camera);
 }
 
@@ -789,16 +798,20 @@ Cam DatasetAnnotator::lockCam(Vector3 pos, Vector3 rot) {
 void DatasetAnnotator::loadScenario(const char* fname)
 {
 	FILE *f = fopen(fname, "r");
-	Vector3 cCoords, cRot;
+	Vector3 cCoords[max_number_of_cams], cRot[max_number_of_cams];
 	Vector3 vTP1, vTP2, vTP1_rot, vTP2_rot;
 	int stop;
 
-	fscanf_s(f, "%d ", &moving);
-	if (moving == 0) 
-		fscanf_s(f, "%f %f %f %d %f %f %f\n", &cCoords.x, &cCoords.y, &cCoords.z, &stop, &cRot.x, &cRot.y, &cRot.z);
-	else 
+	fscanf_s(f, "%d ", &number_of_cameras);
+	
+	//if (moving == 0) 
+	for (int i = 0; i < number_of_cameras; i++) {
+		fscanf_s(f, "%f %f %f %d %f %f %f\n", &cCoords[i].x, &cCoords[i].y, &cCoords[i].z, &stop, &cRot[i].x, &cRot[i].y, &cRot[i].z);
+	}
+	// whaty is the use of stop?
+		/*else 
 		fscanf_s(f, "%f %f %f %d %f %f %f %f %f %f\n", &A.x, &A.y, &A.z, &stop, &B.x, &B.y, &B.z, &C.x, &C.y, &C.z);
-
+	*/
 	fscanf_s(f, "%f %f %f %f %f %f\n", &vTP1.x, &vTP1.y, &vTP1.z, &vTP1_rot.x, &vTP1_rot.y, &vTP1_rot.z);
 	fscanf_s(f, "%f %f %f %f %f %f\n", &vTP2.x, &vTP2.y, &vTP2.z, &vTP2_rot.x, &vTP2_rot.y, &vTP2_rot.z);
 
@@ -824,10 +837,10 @@ void DatasetAnnotator::loadScenario(const char* fname)
 	else
 		Scenario::teleportPlayer(A);*/
 
-	if (moving == 0)
-		ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, cCoords.x, cCoords.y, cCoords.z, 0, 0, 1);
-	else
-		ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, B.x, B.y, B.z, 0, 0, 1);
+	//if (moving == 0)
+	ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, cCoords[0].x, cCoords[0].y, cCoords[0].z, 0, 0, 1);
+	//else
+	//	ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, B.x, B.y, B.z, 0, 0, 1);
 		
 	//ENTITY::SET_ENTITY_COORDS_NO_OFFSET(this->player, cCoords.x, cCoords.y, cCoords.z, 0, 0, 1);
 	//ENTITY::SET_ENTITY_HAS_GRAVITY(this->player, true);
@@ -858,10 +871,10 @@ void DatasetAnnotator::loadScenario(const char* fname)
 	}
 	fclose(f);
 
-	if (moving == 0)
-		DatasetAnnotator::setCameraFixed(cCoords, cRot, 0, fov);
-	else
-		DatasetAnnotator::setCameraMoving(A, B, C, fov);
+	//if (moving == 0)
+	DatasetAnnotator::setCameraFixed(cCoords[0], cRot[0], 0, fov,0);
+	//else
+	//	DatasetAnnotator::setCameraMoving(A, B, C, fov);
 }
 
 void DatasetAnnotator::spawn_peds_flow(Vector3 pos, Vector3 goFrom, Vector3 goTo, int npeds, int ngroup, int currentBehaviour, 

@@ -25,7 +25,7 @@ void record() {
 
 	_mkdir(path);
 
-	int max_samples = 30 * 60 * 1 + 1;
+	int max_samples = 30;//* 60 * 1 + 1;
 	DatasetAnnotator* S;
 
 	int seq_number = 0;

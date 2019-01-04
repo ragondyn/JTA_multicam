@@ -47,8 +47,9 @@ private:
 	std::string log;
 	Cam camera;										// camera #2remove
 	//Cam cameras[max_number_of_cams];				// cameras
-	Vector3 cam_coords;								// coordinates of the camera 2remove
-	Vector3 cam_rot;
+	int number_of_cameras;
+	Vector3 cam_coords[max_number_of_cams];								// coordinates of the camera 2remove
+	Vector3 cam_rot[max_number_of_cams];
 	Vector3 wanderer;
 	Ped entity_cam;
 	Vector3 ped_spawn_pos;
@@ -88,9 +89,9 @@ private:
 
 	CLSID pngClsid;
 
-	void get_2D_from_3D(Vector3 v, float *x, float *y);
+	void get_2D_from_3D(Vector3 v, float *x, float *y, int indexCam);
 	void save_frame();																		// function used to capture frames internally, then private
-	void setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, int fov);
+	void setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, int fov, int indexCam);
 	void setCameraMoving(Vector3 A, Vector3 B, Vector3 C, int fov);							// function used to set the camera stuff
 	void spawnPed(Vector3 spawnAreaCenter, int numPed);										// function used to spawn pedestrians at the beginning of the scenario
 	Vector3 teleportPlayer(Vector3 pos);													// function used to teleport the player to a random position returned by the function
