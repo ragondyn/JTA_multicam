@@ -90,7 +90,7 @@ private:
 	CLSID pngClsid;
 
 	void get_2D_from_3D(Vector3 v, float *x, float *y, int indexCam);
-	void save_frame();																		// function used to capture frames internally, then private
+	void save_frame(int indexCam);																		// function used to capture frames internally, then private
 	void setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, int fov, int indexCam);
 	void setCameraMoving(Vector3 A, Vector3 B, Vector3 C, int fov);							// function used to set the camera stuff
 	void spawnPed(Vector3 spawnAreaCenter, int numPed);										// function used to spawn pedestrians at the beginning of the scenario

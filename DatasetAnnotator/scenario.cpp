@@ -14,7 +14,7 @@
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
-#define TIME_FACTOR 12.0
+#define TIME_FACTOR 6.0
 #define FPS 30
 #define DISPLAY_FLAG TRUE
 #define WANDERING_RADIUS 10.0
@@ -176,7 +176,7 @@ DatasetAnnotator::DatasetAnnotator(std::string _output_path, const char* _file_s
 	// inizialize the coords_file used to storage coords data
 	log_file.open(output_path + "\\log.txt");
 	coords_file.open(output_path + "\\coords.csv");
-	coords_file << "frame, pedestrian_id, joint_type, 3D_x, 3D_y, 3D_z, occluded, self_occluded, ";
+	coords_file << "frame, camIndex, pedestrian_id, joint_type, 3D_x, 3D_y, 3D_z, occluded, self_occluded, ";
 	coords_file << "cam_3D_x, cam_3D_y, cam_3D_z, cam_rot_x, cam_rot_y, cam_rot_z, fov\n";
 
 	this->player = PLAYER::PLAYER_ID();
@@ -252,7 +252,11 @@ DatasetAnnotator::DatasetAnnotator(std::string _output_path, const char* _file_s
 	GAMEPLAY::SET_WEATHER_TYPE_NOW(weather);
 
 	loadScenario(file_scenario);
-
+	std::wstring ws;
+	StringToWString(ws, output_path);
+	for (int k = 0; k < number_of_cameras; k++) {
+		_wmkdir((ws + L"\\" + std::to_wstring(k)).c_str());
+	}
 	//Screen capture buffer
 	GRAPHICS::_GET_SCREEN_ACTIVE_RESOLUTION(&windowWidth, &windowHeight);
 	hWnd = ::FindWindow(NULL, "Compatitibility Theft Auto V");
@@ -342,7 +346,7 @@ int DatasetAnnotator::update()
 	int number_of_peds = worldGetAllPeds(peds, max_number_of_peds);			// number of pedestrians taken
 	float C;																// coefficient used to adjust the size of rectangles drawn around the joints
 
-
+	// necessary at all time frames?
 	for (int i = 0; i < number_of_peds; i++) {
 		if (!PED::IS_PED_A_PLAYER(peds[i]) && peds[i] != ped_with_cam) {
 			ENTITY::SET_ENTITY_COLLISION(peds[i], TRUE, TRUE);
@@ -390,18 +394,29 @@ int DatasetAnnotator::update()
 
 	// scan all the pedestrians taken
 	
+	log_file << "######time: " << nsample << "\n";
+	log_file << "ncameras: " << number_of_cameras << "\n";
 	for (int k = 0; k < number_of_cameras; k++) {
+		log_file << "coord of camera " << k << ": \n";
+		log_file << "cam.x = " << cam_coords[k].x << " \n";
+		log_file << "cam.y = " << cam_coords[k].y << " \n";
+	}
 
+	for (int k = 0; k < number_of_cameras; k++) {
+		log_file << "#setting coord of camera " << k << "\n";
 		CAM::SET_CAM_COORD(camera, cam_coords[k].x, cam_coords[k].y, cam_coords[k].z);
 		CAM::SET_CAM_ROT(camera, cam_rot[k].x, cam_rot[k].y, cam_rot[k].z, 2);
 		CAM::SET_CAM_FOV(camera, (float)fov); // CHECK AND MOVE TO ARRAY?
+		log_file << "coord of camera " << k << ": \n";
+		log_file << "cam.x = " << cam_coords[k].x << " \n";
+		log_file << "cam.y = " << cam_coords[k].y << " \n";
 		//CAM::RENDER_SCRIPT_CAMS(TRUE, FALSE, 0, TRUE, TRUE);
-
+		WAIT(10);
 		for (int i = 0; i < number_of_peds; i++) {
 
 			// ignore pedestrians in vehicles or dead pedestrians
 			if (PED::IS_PED_IN_ANY_VEHICLE(peds[i], TRUE) || PED::IS_PED_DEAD_OR_DYING(peds[i], TRUE)) {
-				//log_file << "veicolo o morto\n";
+				//log_file << "vehicle or dead\n";
 				continue;
 			}
 			// ignore player
@@ -410,11 +425,11 @@ int DatasetAnnotator::update()
 				continue;
 			}
 			else if (!ENTITY::IS_ENTITY_ON_SCREEN(peds[i])) {
-				//log_file << "non su schermo\n";
+				//log_file << "not on the screen\n";
 				continue;
 			}
 			else if (!PED::IS_PED_HUMAN(peds[i])) {
-				//log_file << "non umano\n";
+				//log_file << "non human\n";
 				continue;
 			}
 			else if (!ENTITY::IS_ENTITY_VISIBLE(peds[i])) {
@@ -453,7 +468,7 @@ int DatasetAnnotator::update()
 					float joint2cam_distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(
 						joint_coords.x, joint_coords.y, joint_coords.z,
 						cam_coords[k].x, cam_coords[k].y, cam_coords[k].z, 1
-					); 
+					);
 					float dx = (cam_coords[k].x - joint_coords.x) / joint2cam_distance;
 					float dy = (cam_coords[k].y - joint_coords.y) / joint2cam_distance;
 					float dz = (cam_coords[k].z - joint_coords.z) / joint2cam_distance;
@@ -509,7 +524,7 @@ int DatasetAnnotator::update()
 
 					if (DISPLAY_FLAG) {
 						float x, y;
-						get_2D_from_3D(joint_coords, &x, &y,k);
+						get_2D_from_3D(joint_coords, &x, &y, k);
 
 						// C calculation based on distance between the current pedestrians and the camera
 						if (ped2cam_distance > 6)
@@ -544,6 +559,7 @@ int DatasetAnnotator::update()
 					}
 
 					coords_file << nsample;					  // frame number
+					coords_file << "," << k;					  // frame number
 					coords_file << "," << peds[i];			  // pedestrian ID
 					coords_file << "," << n + 1;				  // joint type
 					coords_file << "," << joint_coords.x;	  // joint 3D x [m]
@@ -562,17 +578,17 @@ int DatasetAnnotator::update()
 				}
 			}
 		}
-		save_frame();
-		nsample++;
-		if (nsample == max_samples) {
-			for (int i = 0; i < nwPeds; i++) {
-				PED::DELETE_PED(&wPeds[i].ped);
-			}
-			for (int i = 0; i < nwPeds_scenario; i++) {
-				PED::DELETE_PED(&wPeds_scenario[i].ped);
-			}
-		}
+		save_frame(k);
 	}
+	nsample++;
+	if (nsample == max_samples) {
+		for (int i = 0; i < nwPeds; i++) {
+			PED::DELETE_PED(&wPeds[i].ped);
+		}
+		for (int i = 0; i < nwPeds_scenario; i++) {
+			PED::DELETE_PED(&wPeds_scenario[i].ped);
+		}
+		}
 	return nsample;
 }
 
@@ -633,13 +649,13 @@ void DatasetAnnotator::get_2D_from_3D(Vector3 v, float *x2d, float *y2d, int ind
 	*y2d = (0.5f - (d.z * (f / d.y)) / SCREEN_HEIGHT);
 }
 
-void DatasetAnnotator::save_frame() {
+void DatasetAnnotator::save_frame(int indexCam) {
 	StretchBlt(hCaptureDC, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, hWindowDC, 0, 0, windowWidth, windowHeight, SRCCOPY | CAPTUREBLT);
 	Gdiplus::Bitmap image(hCaptureBitmap, (HPALETTE)0);
 	std::wstring ws;
 	StringToWString(ws, output_path);
-
-	image.Save((ws + L"\\" + std::to_wstring(nsample) + L".jpeg").c_str(), &pngClsid, NULL);
+	image.Save((ws + L"\\"+ std::to_wstring(indexCam) + L"\\" + std::to_wstring(nsample)
+	 + L".jpeg").c_str(), &pngClsid, NULL);
 }
 
 void DatasetAnnotator::setCameraMoving(Vector3 A, Vector3 B, Vector3 C, int fov) {
@@ -705,9 +721,9 @@ void DatasetAnnotator::setCameraFixed(Vector3 coords, Vector3 rot, float cam_z, 
 
 
 	// set the cam_coords used on update() function
-	this->cam_coords[k] = CAM::GET_CAM_COORD(camera);
-	this->cam_rot[k] = CAM::GET_CAM_ROT(camera, 2);
-	this->fov = (int)CAM::GET_CAM_FOV(camera);
+	//this->cam_coords[k] = CAM::GET_CAM_COORD(camera);
+	//this->cam_rot[k] = CAM::GET_CAM_ROT(camera, 2);
+	//this->fov = (int)CAM::GET_CAM_FOV(camera);
 }
 
 void DatasetAnnotator::spawnPed(Vector3 pos, int numPed) {
@@ -798,17 +814,20 @@ Cam DatasetAnnotator::lockCam(Vector3 pos, Vector3 rot) {
 void DatasetAnnotator::loadScenario(const char* fname)
 {
 	FILE *f = fopen(fname, "r");
-	Vector3 cCoords[max_number_of_cams], cRot[max_number_of_cams];
+	//Vector3 cam_coords[max_number_of_cams], cam_rot[max_number_of_cams];
 	Vector3 vTP1, vTP2, vTP1_rot, vTP2_rot;
 	int stop;
 
 	fscanf_s(f, "%d ", &number_of_cameras);
-	
+	log_file << "number of cams " << number_of_cameras << "\n";
 	//if (moving == 0) 
 	for (int i = 0; i < number_of_cameras; i++) {
-		fscanf_s(f, "%f %f %f %d %f %f %f\n", &cCoords[i].x, &cCoords[i].y, &cCoords[i].z, &stop, &cRot[i].x, &cRot[i].y, &cRot[i].z);
+		log_file << "##cam " << i << "##\n";
+		fscanf_s(f, "%f %f %f %d %f %f %f\n", &cam_coords[i].x, &cam_coords[i].y, &cam_coords[i].z, &stop, &cam_rot[i].x, &cam_rot[i].y, &cam_rot[i].z);
+		log_file << "coord x" << cam_coords[i].x << "\n";
+		log_file << "coord y" << cam_coords[i].y << "\n";
 	}
-	// whaty is the use of stop?
+	// whaty is the use of stop? -> pedestrqins
 		/*else 
 		fscanf_s(f, "%f %f %f %d %f %f %f %f %f %f\n", &A.x, &A.y, &A.z, &stop, &B.x, &B.y, &B.z, &C.x, &C.y, &C.z);
 	*/
@@ -833,16 +852,16 @@ void DatasetAnnotator::loadScenario(const char* fname)
 		WAIT(10000);
 
 	/*if (moving == 0)
-		Scenario::teleportPlayer(cCoords);
+		Scenario::teleportPlayer(cam_coords);
 	else
 		Scenario::teleportPlayer(A);*/
 
 	//if (moving == 0)
-	ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, cCoords[0].x, cCoords[0].y, cCoords[0].z, 0, 0, 1);
+	ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, cam_coords[0].x, cam_coords[0].y, cam_coords[0].z, 0, 0, 1);
 	//else
 	//	ENTITY::SET_ENTITY_COORDS_NO_OFFSET(e, B.x, B.y, B.z, 0, 0, 1);
 		
-	//ENTITY::SET_ENTITY_COORDS_NO_OFFSET(this->player, cCoords.x, cCoords.y, cCoords.z, 0, 0, 1);
+	//ENTITY::SET_ENTITY_COORDS_NO_OFFSET(this->player, cam_coords.x, cam_coords.y, cam_coords.z, 0, 0, 1);
 	//ENTITY::SET_ENTITY_HAS_GRAVITY(this->player, true);
 	//ENTITY::SET_ENTITY_COLLISION(this->player, TRUE, TRUE);
 
@@ -872,7 +891,7 @@ void DatasetAnnotator::loadScenario(const char* fname)
 	fclose(f);
 
 	//if (moving == 0)
-	DatasetAnnotator::setCameraFixed(cCoords[0], cRot[0], 0, fov,0);
+	DatasetAnnotator::setCameraFixed(cam_coords[0], cam_rot[0], 0, fov,0);
 	//else
 	//	DatasetAnnotator::setCameraMoving(A, B, C, fov);
 }
