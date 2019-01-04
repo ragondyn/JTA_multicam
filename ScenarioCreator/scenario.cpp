@@ -1788,8 +1788,8 @@ void ScenarioCreator::file_menu()
 			{
 			case 0:
 				if (nFiles > 0) {
-					set_status_text("Not implemented!");
-					//loadFile();
+					//set_status_text("Not implemented!");
+					loadFile();
 				}
 				break;
 			case 1:

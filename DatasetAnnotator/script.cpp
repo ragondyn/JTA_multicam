@@ -34,7 +34,8 @@ void record() {
 	for (auto &p : fs::recursive_directory_iterator(scenarios_path)) {
 		if (fs::is_regular_file(p)) {
 			int nsamples = 0;
-			std::string output_path = std::string(path) + std::string("seq_") + std::to_string(seq_number);
+			std::string output_path = (std::string(path) + std::string(p.path().filename().string()) +
+				std::string("seq_") + std::to_string(seq_number));
 			_mkdir(output_path.c_str());
 			S = new DatasetAnnotator(output_path, p.path().string().c_str(), max_samples, 0);
 			Sleep(10);
@@ -47,22 +48,22 @@ void record() {
 		}
 	}
 
-	// Night sequences
-	for (auto &p : fs::recursive_directory_iterator(scenarios_path)) {
-		if (fs::is_regular_file(p)) {
-			int nsamples = 0;
-			std::string output_path = std::string(path) + std::string("\\seq_") + std::to_string(seq_number);
-			_mkdir(output_path.c_str());
-			S = new DatasetAnnotator(output_path, p.path().string().c_str(), max_samples, 1);
-			Sleep(10);
-			while (nsamples < max_samples) {
-				nsamples = (*S).update();
-				WAIT(0);
-			}
-			delete static_cast <DatasetAnnotator *>(S);
-			seq_number++;
-		}
-	}
+	//// Night sequences
+	//for (auto &p : fs::recursive_directory_iterator(scenarios_path)) {
+	//	if (fs::is_regular_file(p)) {
+	//		int nsamples = 0;
+	//		std::string output_path = std::string(path) + std::string("\\seq_") + std::to_string(seq_number);
+	//		_mkdir(output_path.c_str());
+	//		S = new DatasetAnnotator(output_path, p.path().string().c_str(), max_samples, 1);
+	//		Sleep(10);
+	//		while (nsamples < max_samples) {
+	//			nsamples = (*S).update();
+	//			WAIT(0);
+	//		}
+	//		delete static_cast <DatasetAnnotator *>(S);
+	//		seq_number++;
+	//	}
+	//}
 
 }
 

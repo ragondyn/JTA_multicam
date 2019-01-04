@@ -20,6 +20,7 @@ const int max_number_of_peds = 1024;					// size of the pedestrians array
 const int number_of_joints = 21;							// size of the joint_ID subset
 const float JOINT_DELTA = 0;
 const int max_wpeds = 300;
+const int max_number_of_cams = 10;						// size of the camera array
 
 typedef struct wPed {
 	Ped ped;
@@ -44,8 +45,9 @@ private:
 	Ped playerPed;
 	std::string line;								// string use the safe the fram data-line
 	std::string log;
-	Cam camera;										// camera
-	Vector3 cam_coords;								// coordinates of the camera
+	Cam camera;										// camera #2remove
+	//Cam cameras[max_number_of_cams];				// cameras
+	Vector3 cam_coords;								// coordinates of the camera 2remove
 	Vector3 cam_rot;
 	Vector3 wanderer;
 	Ped entity_cam;
@@ -67,7 +69,7 @@ private:
 	int windowWidth;
 	int windowHeight;
 	int secondsBeforeSaveImages;
-	int captureFreq;
+	int captureFreq;								// How often to save samples
 	int joint_int_codes[number_of_joints];
 	int fov;
 	int max_waiting_time = 0;
