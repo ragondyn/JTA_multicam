@@ -20,7 +20,7 @@ const int max_number_of_peds = 1024;					// size of the pedestrians array
 const int number_of_joints = 21;							// size of the joint_ID subset
 const float JOINT_DELTA = 0;
 const int max_wpeds = 300;
-const int max_number_of_cams = 10;						// size of the camera array
+const int max_number_of_cams = 5;						// size of the camera array
 
 typedef struct wPed {
 	Ped ped;

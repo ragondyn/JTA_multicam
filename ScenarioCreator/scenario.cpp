@@ -15,7 +15,7 @@ int logLenght = 100;
 char *logString = (char*)malloc(logLenght * sizeof(char));
 
 FILE *f;
-const char *filesPath = "JTA-Scenarios\\";
+const char *filesPath = "custom_scenario\\";
 char fileName[20] = "None";
 int nFiles = 0, currentFile = 1;
 
@@ -38,6 +38,7 @@ bQuit = false;
 bool stopCoords = false;
 
 Vector3 playerCoords;
+Vector3 playerRot;
 Vector3 fixCoords;
 Vector3 goFrom, goTo;
 Vector3 A, B, C;
@@ -294,7 +295,7 @@ void camLockChange()
 	}
 }
 
-void saveFile()
+void ScenarioCreator::saveFile()
 {
 	std::string fname = "";
 	int stop = 0;
@@ -305,14 +306,18 @@ void saveFile()
 	fname = fname + std::string(filesPath) + std::string(fileName);
 	f = fopen(fname.c_str(), "w");
 
-	if (camMoving)
-		fprintf_s(f, "%d %f %f %f %d %f %f %f %f %f %f\n", (int)camMoving, A.x, A.y, A.z, stop, B.x, B.y, B.z, C.x, C.y, C.z);
-	else
-		fprintf_s(f, "%d %f %f %f %d %f %f %f\n", (int)camMoving, camCoords.x, camCoords.y, camCoords.z, stop, camRot.x, camRot.y, camRot.z);
+	//if (camMoving)
+	//	fprintf_s(f, "%d %f %f %f %d %f %f %f %f %f %f\n", (int)camMoving, A.x, A.y, A.z, stop, B.x, B.y, B.z, C.x, C.y, C.z);
+	//else
+	fprintf_s(f, "%d %f %f %f %d %f %f %f\n", (int) number_of_cameras, cam_coords[0].x, cam_coords[0].y, cam_coords[0].z, 
+		stop, cam_rot[0].x, cam_rot[0].y, cam_rot[0].z);
 
+	for (int k = 1; k < number_of_cameras; k++) {
+		fprintf_s(f, "%f %f %f %d %f %f %f\n", cam_coords[k].x, cam_coords[k].y, cam_coords[k].z,
+			stop, cam_rot[k].x, cam_rot[k].y, cam_rot[k].z);
+	}
 	fprintf_s(f, "%f %f %f %f %f %f\n", TP1.x, TP1.y, TP1.z, TP1_rot.x, TP1_rot.y, TP1_rot.z);
 	fprintf_s(f, "%f %f %f %f %f %f\n", TP2.x, TP2.y, TP2.z, TP2_rot.x, TP2_rot.y, TP2_rot.z);
-
 	fprintf_s(f, "%s", logString);
 	fclose(f);
 
@@ -516,6 +521,7 @@ void ScenarioCreator::cameraCoords()
 	//draw_text(text, 0.978, 0.205, 0.3);
 
 	playerCoords = ENTITY::GET_ENTITY_COORDS(PLAYER::PLAYER_PED_ID(), TRUE);
+	//playerRot = ENTITY::GET_ENTITY_ROT(PLAYER::PLAYER_PED_ID(), TRUE);
 
 	v = camCoords;
 	sprintf_s(text, "cam_coords: (%.3f, %.3f, %.3f)", v.x, v.y, v.z);
@@ -793,12 +799,16 @@ void ScenarioCreator::peds_menu()
 void ScenarioCreator::camera_menu()
 {
 	const float lineWidth = 250.0;
-	const int lineCount = 10;
+	const int lineCount = 11 + max_number_of_cams;
 	menuActive = true;
 
 	std::string caption = "CAMERA COORDS";
 
-	char lines[lineCount][50] = { "", "", "", "", "", "", "", "", "", "" };
+	char lines[lineCount][50];// = { "", "", "", "", "", "", "", "", "", "" };
+	for (int k = 0; k < 11 + max_number_of_cams; k++) {
+		lines[k][0] = (char)"";
+	}
+	int lineCountTemp = 11 + number_of_cameras;
 	DWORD waitTime = 150;
 	while (true)
 	{
@@ -825,11 +835,17 @@ void ScenarioCreator::camera_menu()
 		sprintf_s(lines[8], "Teleport 1	~y~[ x=%0.1f y=%0.1f ]", TP1.x, TP1.y);
 		sprintf_s(lines[9], "Teleport 2	~y~[ x=%0.1f y=%0.1f ]", TP2.x, TP2.y);
 
+		// CAMERAS
+		sprintf_s(lines[10], "number of cameras	~y~%d", number_of_cameras);
+		for (int k = 11; k < 11 + number_of_cameras; k++) {
+			sprintf_s(lines[k], "Camera	%d ~y~[ x=%0.1f y=%0.1f ]", k-10 , cam_coords[k-11].x, cam_coords[k-11].y);
+		}
+
 		do
 		{
 			// draw menu
 			draw_menu_line(caption, lineWidth, mHeight, mHeight * 2, mLeft, mTitle, false, true);
-			for (int i = 0; i < lineCount; i++)
+			for (int i = 0; i < lineCountTemp; i++)
 			if (i != activeLineIndexCamera)
 				draw_menu_line(lines[i], lineWidth, mHeight, mTopFlat + i * mTop, mLeft, mHeight, false, false);
 			draw_menu_line(lines[activeLineIndexCamera], lineWidth, mHeight, mTopFlat + activeLineIndexCamera * mTop, mLeft, mHeight, true, false);
@@ -855,14 +871,14 @@ void ScenarioCreator::camera_menu()
 		else if (bUp)
 		{
 			if (activeLineIndexCamera == 0)
-				activeLineIndexCamera = lineCount;
+				activeLineIndexCamera = lineCountTemp;
 			activeLineIndexCamera--;
 			waitTime = 150;
 		}
 		else if (bDown)
 		{
 			activeLineIndexCamera++;
-			if (activeLineIndexCamera == lineCount)
+			if (activeLineIndexCamera == lineCountTemp)
 				activeLineIndexCamera = 0;
 			waitTime = 150;
 		}
@@ -898,6 +914,35 @@ void ScenarioCreator::camera_menu()
 			{
 				TP2 = playerCoords;
 				TP2_rot = CAM::GET_GAMEPLAY_CAM_ROT(2);
+			}
+			else if (activeLineIndexCamera == 10)
+			{
+				if (number_of_cameras < max_number_of_cams)
+				{
+					number_of_cameras++;
+				}
+				else {
+					number_of_cameras = 1;
+				}
+				DWORD maxTickCount = GetTickCount() + waitTime;
+				lineCountTemp = 11 + number_of_cameras;
+				do
+				{
+					// draw menu
+					draw_menu_line(caption, lineWidth, mHeight, mHeight * 2, mLeft, mTitle, false, true);
+					for (int i = 0; i < lineCountTemp; i++)
+						if (i != activeLineIndexCamera)
+							draw_menu_line(lines[i], lineWidth, mHeight, mTopFlat + i * mTop, mLeft, mHeight, false, false);
+					draw_menu_line(lines[activeLineIndexCamera], lineWidth, mHeight, mTopFlat + activeLineIndexCamera * mTop, mLeft, mHeight, true, false);
+
+					update();
+					WAIT(0);
+				} while (GetTickCount() < maxTickCount);
+			}
+			else if (activeLineIndexCamera < 11 + number_of_cameras)
+			{
+				cam_coords[activeLineIndexCamera - 11] = camCoords;
+				cam_rot[activeLineIndexCamera - 11] = camRot;
 			}
 			waitTime = 150;
 		}

@@ -15,7 +15,7 @@
 #include "keyboard.h"
 
 #pragma comment (lib,"Gdiplus.lib")
-
+const int max_number_of_cams = 5;
 
 class ScenarioCreator
 {
@@ -29,9 +29,10 @@ private:
 	Ped playerPed;
 	std::string line;								// string use the safe the fram data-line
 	std::string log;
+	int number_of_cameras = 1;
 	Cam camera;										// camera
-	Vector3 cam_coords;								// coordinates of the camera
-	Vector3 cam_rot;
+	Vector3 cam_coords[max_number_of_cams];								// coordinates of the camera
+	Vector3 cam_rot[max_number_of_cams];
 	bool SHOW_JOINT_RECT;							// bool used to switch the rectangle drawing around the joint
 
 	int windowWidth;
@@ -72,6 +73,7 @@ private:
 	void file_menu();											// function used to load or save files
 	void cancelLastLog();
 	void loadFile();
+	void saveFile();
 
 	void draw_text(char *text, float x, float y, float scale);
 
