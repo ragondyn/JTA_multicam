@@ -15,7 +15,7 @@
 #include "keyboard.h"
 
 #pragma comment (lib,"Gdiplus.lib")
-const int max_number_of_cams = 5;
+const int max_number_of_cams = 8;
 
 class ScenarioCreator
 {

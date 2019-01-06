@@ -14,12 +14,12 @@
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
-#define TIME_FACTOR 6.0
+#define TIME_FACTOR 3.0
 #define FPS 30
-#define DISPLAY_FLAG FALSE
+#define DISPLAY_FLAG FALSE // WARNING !! if screen size != SCREEN_WIDTH/HEIGHT, will not match
 #define WANDERING_RADIUS 10.0
 #define MAX_PED_TO_CAM_DISTANCE 100.0
-#define DEMO TRUE
+#define DEMO FALSE
 
 static char scenarioTypes[14][40]{
 	"NEAREST",
@@ -176,7 +176,7 @@ DatasetAnnotator::DatasetAnnotator(std::string _output_path, const char* _file_s
 	// inizialize the coords_file used to storage coords data
 	log_file.open(output_path + "\\log.txt");
 	coords_file.open(output_path + "\\coords.csv");
-	coords_file << "frame, camIndex, pedestrian_id, joint_type, 3D_x, 3D_y, 3D_z, occluded, self_occluded, ";
+	coords_file << "frame, camIndex, pedestrian_id, joint_type, 3D_x, 3D_y, 3D_z, 2D_x, 2D_y, occluded, self_occluded, ";
 	coords_file << "cam_3D_x, cam_3D_y, cam_3D_z, cam_rot_x, cam_rot_y, cam_rot_z, fov\n";
 
 	this->player = PLAYER::PLAYER_ID();
@@ -259,7 +259,7 @@ DatasetAnnotator::DatasetAnnotator(std::string _output_path, const char* _file_s
 	}
 	//Screen capture buffer
 	GRAPHICS::_GET_SCREEN_ACTIVE_RESOLUTION(&windowWidth, &windowHeight);
-	hWnd = ::FindWindow(NULL, "Compatitibility Theft Auto V");
+	hWnd = ::FindWindow(NULL, "Grand Theft Auto V");
 	hWindowDC = GetDC(hWnd);
 	hCaptureDC = CreateCompatibleDC(hWindowDC);
 	hCaptureBitmap = CreateCompatibleBitmap(hWindowDC, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -393,25 +393,13 @@ int DatasetAnnotator::update()
 	//this->fov = CAM::GET_GAMEPLAY_CAM_FOV();
 
 	// scan all the pedestrians taken
-	
-	log_file << "######time: " << nsample << "\n";
-	log_file << "ncameras: " << number_of_cameras << "\n";
-	for (int k = 0; k < number_of_cameras; k++) {
-		log_file << "coord of camera " << k << ": \n";
-		log_file << "cam.x = " << cam_coords[k].x << " \n";
-		log_file << "cam.y = " << cam_coords[k].y << " \n";
-	}
 
 	for (int k = 0; k < number_of_cameras; k++) {
-		log_file << "#setting coord of camera " << k << "\n";
 		CAM::SET_CAM_COORD(camera, cam_coords[k].x, cam_coords[k].y, cam_coords[k].z);
 		CAM::SET_CAM_ROT(camera, cam_rot[k].x, cam_rot[k].y, cam_rot[k].z, 2);
 		CAM::SET_CAM_FOV(camera, (float)fov); // CHECK AND MOVE TO ARRAY?
-		log_file << "coord of camera " << k << ": \n";
-		log_file << "cam.x = " << cam_coords[k].x << " \n";
-		log_file << "cam.y = " << cam_coords[k].y << " \n";
 		//CAM::RENDER_SCRIPT_CAMS(TRUE, FALSE, 0, TRUE, TRUE);
-		WAIT(10);
+		WAIT(20);
 		for (int i = 0; i < number_of_peds; i++) {
 
 			// ignore pedestrians in vehicles or dead pedestrians
@@ -489,7 +477,6 @@ int DatasetAnnotator::update()
 					if (entityHit1 == ped_with_cam)
 						occlusion_ped = FALSE;
 
-
 					// ray #2: from joint to camera (without ignoring the pedestrian to whom the joint belongs and intersecting only pedestrian (8))
 					// ==> useful for detecting self-occlusions
 					Vector3 endCoords2, surfaceNormal2;
@@ -517,15 +504,14 @@ int DatasetAnnotator::update()
 						(~0 ^ (8 | 4)), peds[i], 7
 					);
 					WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam_obj, &occlusion_object, &endCoords3, &surfaceNormal3, &entityHit3);
+					WORLDPROBE::_GET_RAYCAST_RESULT(ray_joint2cam_obj, &occlusion_object, &endCoords3, &surfaceNormal3, &entityHit3);
 
 
 					BOOL occluded = occlusion_ped || occlusion_object;
-
-
+					float x, y;
+					get_2D_from_3D(joint_coords, &x, &y, k);
 					if (DISPLAY_FLAG) {
-						float x, y;
-						get_2D_from_3D(joint_coords, &x, &y, k);
-
+						
 						// C calculation based on distance between the current pedestrians and the camera
 						if (ped2cam_distance > 6)
 							C = (float)(1.5 / cbrt(ped2cam_distance));
@@ -557,7 +543,7 @@ int DatasetAnnotator::update()
 							GRAPHICS::DRAW_RECT(x, y, 0.005f*C, 0.005f*C, 0, 255, 64, 175);
 						}
 					}
-
+					
 					coords_file << nsample;					  // frame number
 					coords_file << "," << k;					  // frame number
 					coords_file << "," << peds[i];			  // pedestrian ID
@@ -565,6 +551,8 @@ int DatasetAnnotator::update()
 					coords_file << "," << joint_coords.x;	  // joint 3D x [m]
 					coords_file << "," << joint_coords.y;	  // joint 3D y [m]
 					coords_file << "," << joint_coords.z;	  // joint 3D z [m]
+					coords_file << "," << (int) x * SCREEN_WIDTH;				  // 2D X coord
+					coords_file << "," << (int) y * SCREEN_HEIGHT;				  // 2D Y coord
 					coords_file << "," << occluded;			  // is joint occluded?
 					coords_file << "," << occlusion_self;	  // is joint self-occluded?
 					coords_file << "," << cam_coords[k].x;		  // camera 3D x [m]
@@ -574,10 +562,12 @@ int DatasetAnnotator::update()
 					coords_file << "," << cam_rot[k].y;	      // camera 3D rotation y [degrees]
 					coords_file << "," << cam_rot[k].z;	      // camera 3D rotation z [degrees]
 					coords_file << "," << fov;				  // camera FOV  [degrees]
+
 					coords_file << "\n";
 				}
 			}
 		}
+		//WAIT(4);
 		save_frame(k);
 	}
 	nsample++;
@@ -650,7 +640,8 @@ void DatasetAnnotator::get_2D_from_3D(Vector3 v, float *x2d, float *y2d, int ind
 }
 
 void DatasetAnnotator::save_frame(int indexCam) {
-	StretchBlt(hCaptureDC, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, hWindowDC, 0, 0, windowWidth, windowHeight, SRCCOPY | CAPTUREBLT);
+	StretchBlt(hCaptureDC, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, hWindowDC, 0, 0,
+		windowWidth, windowHeight, SRCCOPY | CAPTUREBLT);
 	Gdiplus::Bitmap image(hCaptureBitmap, (HPALETTE)0);
 	std::wstring ws;
 	StringToWString(ws, output_path);
