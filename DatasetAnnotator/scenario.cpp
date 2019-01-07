@@ -14,12 +14,12 @@
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
-#define TIME_FACTOR 3.0
-#define FPS 30
+#define TIME_FACTOR 6.0
+#define FPS 15
 #define DISPLAY_FLAG FALSE // WARNING !! if screen size != SCREEN_WIDTH/HEIGHT, will not match
 #define WANDERING_RADIUS 10.0
 #define MAX_PED_TO_CAM_DISTANCE 100.0
-#define DEMO FALSE
+#define DEMO TRUE
 
 static char scenarioTypes[14][40]{
 	"NEAREST",
@@ -551,8 +551,8 @@ int DatasetAnnotator::update()
 					coords_file << "," << joint_coords.x;	  // joint 3D x [m]
 					coords_file << "," << joint_coords.y;	  // joint 3D y [m]
 					coords_file << "," << joint_coords.z;	  // joint 3D z [m]
-					coords_file << "," << (int) x * SCREEN_WIDTH;				  // 2D X coord
-					coords_file << "," << (int) y * SCREEN_HEIGHT;				  // 2D Y coord
+					coords_file << "," << (int) (x * SCREEN_WIDTH);				  // 2D X coord
+					coords_file << "," << (int) (y * SCREEN_HEIGHT);				  // 2D Y coord
 					coords_file << "," << occluded;			  // is joint occluded?
 					coords_file << "," << occlusion_self;	  // is joint self-occluded?
 					coords_file << "," << cam_coords[k].x;		  // camera 3D x [m]

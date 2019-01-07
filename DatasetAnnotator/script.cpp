@@ -26,7 +26,7 @@ void record() {
 	_mkdir(path); 
 	_mkdir(scenarios_path);
 
-	int max_samples = 30 * 60 * 10 + 1;
+	int max_samples = 30 * 60 * 5 + 1;
 	DatasetAnnotator* S;
 
 	int seq_number = 0;
