@@ -1,3 +1,5 @@
+Modification of https://github.com/fabbrimatteo/JTA-Mods to support multi camera tracking. 
+
 # JTA Mods (beta)
 This repository contains two Grand Theft Auto V Mods used for creating the [JTA Dataset](http://imagelab.ing.unimore.it/jta) presented in the paper [Learning to Detect and Track Visible and Occluded Body Joints in a Virtual World](https://arxiv.org/abs/1803.08319):
 - ScenarioCreator: lets you create your own scenarios that should appear in your dataset
